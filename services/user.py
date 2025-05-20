@@ -16,6 +16,7 @@ class UserService:
             session.commit()
             # Return a dictionary with user data
             return {
+                "id": user.id,
                 "email": user.email,
                 "password": user.password,
                 "mailgun": user.mailgun
