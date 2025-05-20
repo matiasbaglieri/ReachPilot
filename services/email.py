@@ -1,6 +1,7 @@
 from models.base import SessionLocal, User, Campaign,Contact, CampaignEmail
 from datetime import date
 import os
+import re,requests
 
 class EmailService:
     def execute(self, user):
@@ -17,13 +18,79 @@ class EmailService:
                 status="PENDING"
             ).all()
             print(f"Found {len(pending_emails)} CampaignEmail(s) with status PENDING for campaign {campaign_id}")
+            mailgun_from = input("Add a from to send the email: ")
+            
             for ce in pending_emails:
                 print(f"To: {ce.to}, Subject: {ce.subject}")
+                self.send_email(
+                    mailgun_from=mailgun_from,
+                    mailgun_api=user['mailgun'],
+                    to_email=ce.to,
+                    subject=ce.subject,
+                    body=ce.body,
+                    campaign_email_id=ce.id
+                )
+            pending_emails = session.query(CampaignEmail).filter_by(
+                campaign_id=campaign_id,
+                status="PENDING"
+            ).all()
+            # After printing, check if there are any PENDING CampaignEmails left
+            if not pending_emails:
+                # Update Campaign status to COMPLETED
+                campaign = session.query(Campaign).filter_by(id=campaign_id).first()
+                if campaign:
+                    campaign.status = "COMPLETED"
+                    session.commit()
+                    print(f"Campaign {campaign_id} status updated to COMPLETED.")
+
         except Exception as e:
             print(f"Error fetching pending CampaignEmails: {e}")
         finally:
             session.close()
-          
+    def send_email(self, mailgun_from,mailgun_api, to_email, subject, body, campaign_email_id):
+        """
+        Send an email using Mailgun and update CampaignEmail status to COMPLETED if successful.
+        """
+        session = SessionLocal()
+        try:
+            match = re.search(r'@([A-Za-z0-9.-]+)$', mailgun_from)
+            if match:
+                MAILGUN_DOMAIN = match.group(1)
+            else:
+                print("Invalid mailgun_from email address.")
+                return
+
+            MAILGUN_API_KEY = mailgun_api
+
+            response = requests.post(
+                f"https://api.mailgun.net/v3/{MAILGUN_DOMAIN}/messages",
+                auth=("api", MAILGUN_API_KEY),
+                data={
+                    "from": f"{mailgun_from}>",
+                    "to": [to_email],
+                    "subject": subject,
+                    "html": body
+                }
+            )
+
+            if response.status_code == 200:
+                # Update CampaignEmail status to COMPLETED
+                status = "COMPLETED"
+                print(f"Email sent to {to_email} and status updated to COMPLETED.")
+            else:
+                status = "FAILED"
+                print(f"Failed to send email to {to_email}: {response.text}")
+            campaign_email = session.query(CampaignEmail).filter_by(id=campaign_email_id).first()
+            if campaign_email:
+                campaign_email.status = status
+                session.commit()
+        
+        except Exception as e:
+            session.rollback()
+            print(f"Error sending email: {e}")
+        finally:
+            session.close()
+       
     def add_or_retrive_campaign(self, user_id, status="PENDING", action="EMAIL", date_execution=None):
         session = SessionLocal()
         try:
@@ -97,11 +164,19 @@ class EmailService:
                 # Check if already exists to avoid duplicates
                 exists = session.query(CampaignEmail).filter_by(
                     campaign_id=campaign_id,
-                    contact_id=contact.id,
-                    user_id=user_id
+                    contact_id=contact.id
                 ).first()
                 if exists:
                     continue
+                personalized_subject = subject.replace("{first_name}", contact.first_name or "") \
+                                  .replace("{last_name}", contact.last_name or "") \
+                                  .replace("{title}", contact.title or "") \
+                                  .replace("{website}", contact.website or "")
+                personalized_body = body.replace("{first_name}", contact.first_name or "") \
+                            .replace("{last_name}", contact.last_name or "") \
+                            .replace("{title}", contact.title or "") \
+                            .replace("{website}", contact.website or "")
+
                 campaign_email = CampaignEmail(
                     campaign_id=campaign_id,
                     contact_id=contact.id,
@@ -109,8 +184,8 @@ class EmailService:
                     date_from=date.today(),
                     status=status,
                     to=contact.email,
-                    subject=subject,
-                    body=body
+                    subject=personalized_subject,
+                    body=personalized_body
                 )
                 session.add(campaign_email)
                 inserted += 1
