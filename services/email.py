@@ -4,6 +4,13 @@ import os
 import re,requests
 
 class EmailService:
+    """
+    Main execution method for the email service.
+    - Retrieves or creates a campaign for the user.
+    - Finds all CampaignEmail entries with status PENDING for the campaign.
+    - Sends emails using Mailgun for each pending CampaignEmail.
+    - Updates the campaign status to COMPLETED if there are no pending emails left.
+    """
     def execute(self, user):
         print(f"Executing Email service with:")
         print(f"Email: {user['email']}")
@@ -23,9 +30,9 @@ class EmailService:
                 self.update_campaign(campaign_id, status="COMPLETED")
                 return
             mailgun_from = input("Add a from to send the email: ")
-            
+            inserted = 0
             for ce in pending_emails:
-                print(f"To: {ce.to}, Subject: {ce.subject}")
+                print(f"Found {len(pending_emails)} Inserted:{inserted} To: {ce.to}, Subject: {ce.subject}")
                 self.send_email(
                     mailgun_from=mailgun_from,
                     mailgun_api=user['mailgun'],
@@ -34,6 +41,7 @@ class EmailService:
                     body=ce.body,
                     campaign_email_id=ce.id
                 )
+                inserted += 1
             pending_emails = session.query(CampaignEmail).filter_by(
                 campaign_id=campaign_id,
                 status="PENDING"
@@ -47,6 +55,10 @@ class EmailService:
             print(f"Error fetching pending CampaignEmails: {e}")
         finally:
             session.close()
+    """
+    Updates the status of a campaign given its ID.
+    Commits the change to the database and prints the result.
+    """
     def update_campaign(self, campaign_id, status):
         session = SessionLocal()
         try:
@@ -60,7 +72,12 @@ class EmailService:
             print(f"Error updating campaign status: {e}")
         finally:
             session.close()
-               
+    """
+    Sends an email using the Mailgun API.
+    - Extracts the domain from the sender's email.
+    - Sends the email to the recipient.
+    - Updates the CampaignEmail status to COMPLETED if successful, or FAILED otherwise.
+    """           
     def send_email(self, mailgun_from,mailgun_api, to_email, subject, body, campaign_email_id):
         """
         Send an email using Mailgun and update CampaignEmail status to COMPLETED if successful.
@@ -80,7 +97,7 @@ class EmailService:
                 f"https://api.mailgun.net/v3/{MAILGUN_DOMAIN}/messages",
                 auth=("api", MAILGUN_API_KEY),
                 data={
-                    "from": f"{mailgun_from}>",
+                    "from": f"<{mailgun_from}>",
                     "to": [to_email],
                     "subject": subject,
                     "html": body
@@ -104,7 +121,12 @@ class EmailService:
             print(f"Error sending email: {e}")
         finally:
             session.close()
-       
+    """
+    Finds an existing campaign for the user with the given status and action, or creates a new one.
+    - Prompts the user to select an HTML file for the email body and enter a subject and tags.
+    - Calls add_campaign_contacts to create CampaignEmail entries for all matching contacts.
+    - Returns the campaign ID.
+    """   
     def add_or_retrive_campaign(self, user_id, status="PENDING", action="EMAIL", date_execution=None):
         session = SessionLocal()
         try:
@@ -165,7 +187,12 @@ class EmailService:
             return None
         finally:
             session.close()
-
+    """
+    For a given user_id and campaign_id, inserts all user's contacts (filtered by tags) into CampaignEmail.
+    - Personalizes the subject and body for each contact.
+    - Avoids duplicates by checking for existing CampaignEmail entries.
+    - Prints the number of contacts found and inserted.
+    """
     def add_campaign_contacts(self, user_id, campaign_id, subject, body, status="PENDING",tags="INVESTORS"):
         """
         For a given user_id and campaign_id, insert all user's contacts into CampaignEmail.
@@ -203,7 +230,7 @@ class EmailService:
                     subject=personalized_subject,
                     body=personalized_body
                 )
-                print(f"Inserted: {inserted} Prepared CampaignEmail: campaign_id={campaign_email.campaign_id}, contact_id={campaign_email.contact_id}, user_id={campaign_email.user_id}, to={campaign_email.to}, subject={campaign_email.subject}")
+                print(f"Found:{len(contacts)} Inserted: {inserted} Prepared CampaignEmail: campaign_id={campaign_email.campaign_id}, contact_id={campaign_email.contact_id}, user_id={campaign_email.user_id}, to={campaign_email.to}, subject={campaign_email.subject}")
                 session.add(campaign_email)
                 inserted += 1
                 session.commit()
