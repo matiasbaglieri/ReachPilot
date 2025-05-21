@@ -18,6 +18,10 @@ class EmailService:
                 status="PENDING"
             ).all()
             print(f"Found {len(pending_emails)} CampaignEmail(s) with status PENDING for campaign {campaign_id}")
+            if not pending_emails:
+                # Update Campaign status to COMPLETED
+                self.update_campaign(campaign_id, status="COMPLETED")
+                return
             mailgun_from = input("Add a from to send the email: ")
             
             for ce in pending_emails:
@@ -37,16 +41,26 @@ class EmailService:
             # After printing, check if there are any PENDING CampaignEmails left
             if not pending_emails:
                 # Update Campaign status to COMPLETED
-                campaign = session.query(Campaign).filter_by(id=campaign_id).first()
-                if campaign:
-                    campaign.status = "COMPLETED"
-                    session.commit()
-                    print(f"Campaign {campaign_id} status updated to COMPLETED.")
-
+                self.update_campaign(campaign_id, status="COMPLETED")
+               
         except Exception as e:
             print(f"Error fetching pending CampaignEmails: {e}")
         finally:
             session.close()
+    def update_campaign(self, campaign_id, status):
+        session = SessionLocal()
+        try:
+            campaign = session.query(Campaign).filter_by(id=campaign_id).first()
+            if campaign:
+                campaign.status = status
+                session.commit()
+                print(f"Campaign {campaign_id} status updated to {status}.")
+        except Exception as e:
+            session.rollback()
+            print(f"Error updating campaign status: {e}")
+        finally:
+            session.close()
+               
     def send_email(self, mailgun_from,mailgun_api, to_email, subject, body, campaign_email_id):
         """
         Send an email using Mailgun and update CampaignEmail status to COMPLETED if successful.
@@ -158,7 +172,9 @@ class EmailService:
         """
         session = SessionLocal()
         try:
-            contacts = session.query(Contact).filter(Contact.user_id == user_id, Contact.tags.like('%{tags}%')).all()
+            print(f"Running query: SELECT * FROM contacts WHERE user_id={user_id} AND tags LIKE '%{tags}%'")
+            contacts = session.query(Contact).filter(Contact.user_id == user_id, Contact.tags.like(f'%{tags}%')).all()
+            print(f"Found {len(contacts)} contacts with tags like '{tags}' for user_id {user_id}")
             inserted = 0
             for contact in contacts:
                 # Check if already exists to avoid duplicates
@@ -187,6 +203,7 @@ class EmailService:
                     subject=personalized_subject,
                     body=personalized_body
                 )
+                print(f"Inserted: {inserted} Prepared CampaignEmail: campaign_id={campaign_email.campaign_id}, contact_id={campaign_email.contact_id}, user_id={campaign_email.user_id}, to={campaign_email.to}, subject={campaign_email.subject}")
                 session.add(campaign_email)
                 inserted += 1
                 session.commit()

@@ -30,7 +30,15 @@ john.doe@example.com,John,Doe,ExampleCompany,Manager,London,UK,www.example.com,h
 jane.smith@example.com,Jane,Smith,AnotherCompany,Director,Manchester,UK,www.another.com,https://linkedin.com/in/janesmith
 ```
 
+## Adding Email Templates
+
+You can also add email templates in HTML format for use by the system.  
+To do this, simply place your `.html` files in this `dumps/` directory. These files can be selected and used as the body of emails sent to contacts.
+
+**Example:**
+- `email.html` — a template with placeholders like `{first_name}`, `{last_name}`, etc.
+
 ## Notes
 
-- Only `.csv` files should be placed in this directory.
+- Only `.csv` and `.html` files should be placed in this directory.
 - This directory is excluded from version control via `.gitignore`.
