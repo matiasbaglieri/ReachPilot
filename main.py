@@ -3,16 +3,18 @@ from services.linkedin import LinkedinService
 from services.email import EmailService
 from services.user import UserService
 from services.contact import ContactService
+from services.linkedin_connect import LinkedinConnect
 
-def submenu():
+def submenu(user):
     while True:
         print("\n--- Submenu ---")
-        print("1. Submenu Option 1")
+        print("1. Connect Contacts from db in Linkedin")
         print("2. Submenu Option 2")
         print("0. Back to Main Menu")
         choice = input("Select an option: ")
         if choice == "1":
-            print("You selected Submenu Option 1")
+            linkedin_connect_service = LinkedinConnect()
+            linkedin_connect_service.execute(user)
         elif choice == "2":
             print("You selected Submenu Option 2")
         elif choice == "0":
@@ -54,21 +56,17 @@ def main_menu():
         return
     while True:
         print("\n=== Main Menu ===")
-        print("1. Go to Submenu")
-        print("2. Execute Linkedin Service")
-        print("3. Execute Email Service")
-        print("4. Find Contacts (Import from CSV)")
+        print("1. Go to Linkedin")
+        print("2. Execute Email Service")
+        print("3. Find Contacts (Import from CSV)")
         print("0. Exit")
         choice = input("Select an option: ")
         if choice == "1":
-            submenu()
+            submenu(user)
         elif choice == "2":
-            linkedin_service = LinkedinService()
-            linkedin_service.execute(user)
-        elif choice == "3":
             email_service = EmailService()
             email_service.execute(user)
-        elif choice == "4":
+        elif choice == "3":
             find_contacts(user)
         elif choice == "0":
             print("Exiting...")
