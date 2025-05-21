@@ -1,7 +1,18 @@
-from models.base import SessionLocal, User,CampaignLinkedin, Campaign,Contact, CampaignEmail
+from models.base import SessionLocal, CampaignLinkedin, Campaign,Contact
 from datetime import date
+from selenium import webdriver
+from chromedriver_py import binary_path # This will get you the path variable
+from selenium.webdriver.chrome.service import Service
+# Wait for the page to load and find the input fields
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+import time
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import traceback
+
 import os
-import re,requests
 
 class LinkedinService:
     def execute(self, user):
@@ -23,11 +34,13 @@ class LinkedinService:
                 # Update Campaign status to COMPLETED
                 self.update_campaign(campaign_id, status="COMPLETED")
                 return
+            driver = self.login_linkedin(user['email'], user['password'])
             inserted = 0
             for ce in pending_linkedin:
-                print(f"Found {len(pending_linkedin)} Inserted:{inserted} To: {ce.to}, Subject: {ce.subject}")
-                mailgun_from = input("Add a from to send the email: ")
-                
+                print(f"Found {len(pending_linkedin)} Inserted:{inserted} url: {ce.url}")
+                driver.get(ce.url)
+                time.sleep(5)
+                self.click_connect(ce,driver,session)
                 inserted += 1
             pending_linkedin = session.query(CampaignLinkedin).filter_by(
                 campaign_id=campaign_id,
@@ -43,7 +56,111 @@ class LinkedinService:
             print(f"Error fetching pending CampaignLinkedin: {e}")
         finally:
             session.close()
-    
+            
+    def click_connect(self, ce, driver, session):
+        buttons = driver.find_elements(By.TAG_NAME, "button")
+        connect_button = None
+        is_connect_present = True
+        for btn in buttons:
+            print(f"Found Message button: '{btn.text}'")
+            if "Connect" in btn.text:
+                connect_button = btn
+            if "Message" in btn.text:
+                if is_connect_present and connect_button is not None and connect_button:
+                    connect_button.click()
+                    time.sleep(5)
+                    self.connect_modal(ce, driver, session)
+                    print("Clicked the Connect button.")
+                    break
+                else:
+                    is_connect_present = False   
+            if "More" in btn.text:
+                btn.click()
+                time.sleep(1)
+                print("Clicked the More button.")
+                try:
+                    # Wait for the dropdown to appear
+                    dropdown = driver.find_elements(By.CSS_SELECTOR, ".artdeco-dropdown__content")
+
+                    for d in dropdown:
+                        connect_buttons = d.find_elements(By.XPATH, ".//*[@role='button']")
+                        for btn in connect_buttons:
+                            btn_text = btn.text
+                            aria_label = btn.get_attribute("aria-label") or ""
+                            print(f"Dropdown button text: '{btn_text}', aria-label: '{aria_label}'")
+                            if "Connect" in btn_text or "Connect" in aria_label:
+                                btn.click()
+                                print("Clicked the Connect button in dropdown.")
+                                time.sleep(2)
+                                self.connect_modal(ce, driver, session)
+                                print("Clicked the Connect button.")
+                                break
+                    
+                except Exception as e:
+                    print(f"Could not find or click Connect in dropdown: {e}")
+                    traceback.print_exc()
+            if "Pending" in btn.text:
+                print("Already connected or pending.")
+                ce.status = "CONNECTED"
+                session.commit()
+                break
+            
+    def connect_modal(self, ce, driver, session):
+        try:
+            # Wait for the modal to appear
+            modal = WebDriverWait(driver, 10).until(
+                EC.visibility_of_element_located((By.CLASS_NAME, "artdeco-modal"))
+            )
+            # Find all buttons inside the modal
+            modal_buttons = modal.find_elements(By.TAG_NAME, "button")
+            for btn in modal_buttons:
+                print(f"Modal button text: '{btn.text}'")
+                if "Send without a note" in btn.text:
+                    btn.click()
+                    time.sleep(5)
+                    ce.status = "CONNECTED"
+                    session.commit()
+                    break
+        except Exception as e:
+            print(f"Could not find modal or its buttons: {e}")
+                
+    """
+    Logs into LinkedIn using the provided email and password.
+    Uses chromedriver from the root project directory.
+    """
+    def login_linkedin(self, email, password):
+        """
+        Logs into LinkedIn using the provided email and password.
+        Uses chromedriver from /usr/local/bin/chromedriver.
+        """
+        
+        chromedriver_path = '/usr/local/bin/chromedriver'
+        svc = Service(executable_path=chromedriver_path)
+        driver = webdriver.Chrome(service=svc)
+        try:
+            driver.get("https://www.linkedin.com/login")
+            print("Opened LinkedIn login page with Selenium.")
+            time.sleep(5)  # Wait for the page to load (use WebDriverWait for production)
+            email_input = driver.find_element(By.ID, "username")
+            password_input = driver.find_element(By.ID, "password")
+
+            email_input.clear()
+            email_input.send_keys(email)
+            password_input.clear()
+            password_input.send_keys(password)
+            password_input.send_keys(Keys.RETURN)
+            time.sleep(5)  # Wait for the page to load (use WebDriverWait for production)
+            # Check for LinkedIn challenge page
+            current_url = driver.current_url
+            if "https://www.linkedin.com/checkpoint/challenge" in current_url:
+                print("LinkedIn challenge detected! Please resolve the challenge manually.")
+                input("Press Enter after completing the challenge in the browser...")
+
+            # You can add more Selenium automation here as needed
+        except Exception as e:
+            print(f"Selenium error: {e}")
+        return driver
+            
     """
     Updates the status of a campaign given its ID.
     Commits the change to the database and prints the result.

@@ -6,3 +6,4 @@ mysql-connector-python
 sqlalchemy
 configparser
 mysql
+chromedriver-py

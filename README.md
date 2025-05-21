@@ -34,7 +34,12 @@ ReachPilot is an AI-powered automation tool designed to streamline lead generati
 5. **Prepare your data:**
     - Place your CSV files and HTML email templates in the [`dumps/`](./dumps/) directory.
 
-6. **Run ReachPilot:**
+6. **download chromedriver:**
+    - download the chromedriver 
+    brew install chromedriver
+    xattr -d com.apple.quarantine /usr/local/bin/chromedriver
+    
+7. **Run ReachPilot:**
     ```sh
     python3 main.py
     ```
