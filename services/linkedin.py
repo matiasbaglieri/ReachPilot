@@ -1,4 +1,4 @@
-from models.base import SessionLocal, CampaignLinkedin, Campaign,Contact
+from models.base import SessionLocal, CampaignLinkedin, Campaign,Contact,CampaignLinkedinSearch
 from datetime import date
 from selenium import webdriver
 from chromedriver_py import binary_path # This will get you the path variable
@@ -40,7 +40,7 @@ class LinkedinService:
                 try:
                     # Wait for the dropdown to appear
                     dropdown = driver.find_elements(By.CSS_SELECTOR, ".artdeco-dropdown__content")
-
+                    is_connected = False
                     for d in dropdown:
                         connect_buttons = d.find_elements(By.XPATH, ".//*[@role='button']")
                         for btn in connect_buttons:
@@ -48,12 +48,18 @@ class LinkedinService:
                             aria_label = btn.get_attribute("aria-label") or ""
                             print(f"Dropdown button text: '{btn_text}', aria-label: '{aria_label}'")
                             if "Connect" in btn_text or "Connect" in aria_label:
+                                if "Connection" in btn_text or "Connection" in aria_label:
+                                    break
+                                is_connected = True
                                 btn.click()
                                 print("Clicked the Connect button in dropdown.")
                                 time.sleep(2)
                                 self.connect_modal(ce, driver, session)
                                 print("Clicked the Connect button.")
                                 break
+                    if is_connected:
+                        ce.status = "CONNECTED"
+                        session.commit()
                     
                 except Exception as e:
                     print(f"Could not find or click Connect in dropdown: {e}")
@@ -178,6 +184,42 @@ class LinkedinService:
             return None
         finally:
             session.close()
+    """
+    Finds an existing campaign for the user with the given status and action, or creates a new one.
+    - Calls add_campaign_contacts to create CampaignLinkedin entries for all matching contacts.
+    - Returns the campaign ID.
+    """   
+    def add_or_retrive_campaign_only(self, user_id, status="PENDING", action="LINKEDIN_CONNECT", date_execution=None):
+        session = SessionLocal()
+        try:
+            if date_execution is None:
+                date_execution = date.today()
+            campaign = session.query(Campaign).filter_by(
+                user_id=user_id,
+                status=status,
+                action=action
+            ).first()
+            if campaign is None:
+                campaign = Campaign(
+                    user_id=user_id,
+                    status=status,
+                    action=action,
+                    date_execution=date_execution
+                )
+                session.add(campaign)
+                session.commit()
+                print(f"Created new campaign with id: {campaign.id}")
+            else:
+                print(f"Found existing campaign with id: {campaign.id}")
+
+            return campaign.id
+        except Exception as e:
+            session.rollback()
+            print(f"Error: {e}")
+            return None
+        finally:
+            session.close()
+    
     """
     For a given user_id and campaign_id, inserts all user's contacts (filtered by tags) into CampaignLinkedin.
     - Avoids duplicates by checking for existing CampaignLinkedin entries.

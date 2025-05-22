@@ -4,19 +4,20 @@ from services.email import EmailService
 from services.user import UserService
 from services.contact import ContactService
 from services.linkedin_connect import LinkedinConnect
-
+from services.linkedin_search import LinkedinSearch
 def submenu(user):
     while True:
         print("\n--- Submenu ---")
         print("1. Connect Contacts from db in Linkedin")
-        print("2. Submenu Option 2")
+        print("2. Search in linkedin and create a bulk list")
         print("0. Back to Main Menu")
         choice = input("Select an option: ")
         if choice == "1":
             linkedin_connect_service = LinkedinConnect()
             linkedin_connect_service.execute(user)
         elif choice == "2":
-            print("You selected Submenu Option 2")
+            linkedin_search_service = LinkedinSearch()
+            linkedin_search_service.execute(user)
         elif choice == "0":
             break
         else:
