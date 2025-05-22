@@ -20,7 +20,7 @@ for handling LinkedIn search workflows.
 class LinkedinSearch(LinkedinService):
 
     def execute(self, user):
-        print(f"Executing Linkedin service with:")
+        print(f"Executing LinkedinSearch service with:")
         print(f"Email: {user['email']}")
         print(f"Password: {user['password']}")
         campaign_id = self.add_or_retrive_campaign_only(user['id'], status="PENDING", action="LINKEDIN_SEARCH", date_execution=None)
@@ -93,74 +93,7 @@ class LinkedinSearch(LinkedinService):
         session.close()
         return more_results
       
-    def update_campaign_linkedin_search(self, id, status=None, page=None):
-        session = SessionLocal()
-        try:
-            campaign_linkedin_search = session.query(CampaignLinkedinSearch).filter_by(id=id).first()
-            if not campaign_linkedin_search:
-                print(f"No CampaignLinkedinSearch found with id: {id}")
-                return False
-            if status is not None:
-                campaign_linkedin_search.status = status
-            if page is not None:
-                campaign_linkedin_search.page = page
-            session.commit()
-            print(f"Updated CampaignLinkedinSearch id {id}: status={status}, page={page}")
-            return True
-        except Exception as e:
-            session.rollback()
-            print(f"Error updating CampaignLinkedinSearch: {e}")
-            return False
-        finally:
-            session.close()
-    """
-    Finds an existing campaign linkedin search for the user with the given status  or creates a new one.
-    - Returns the campaign linkedin search object.
-    """   
-    def add_or_retrive_campaign_linkedin(self, user_id,campaign_id, status="PENDING"):
-        session = SessionLocal()
-        try:
-            campaign_linkedin_search = session.query(CampaignLinkedinSearch).filter_by(
-                user_id=user_id,
-                campaign_id=campaign_id
-            ).first()
-            if campaign_linkedin_search is None:
-                data = self.menu_search()
-                campaign_linkedin_search = CampaignLinkedinSearch(
-                    user_id=user_id,
-                    campaign_id=campaign_id,
-                    status=status,
-                    query = data['query'],
-                    network = data['network'],
-                    connection = data['connection'],
-                    geo =  data['geo'],
-                    geo_value = data['geo_value'],
-                    page = 1
-                )
-                session.add(campaign_linkedin_search)
-                session.commit()
-                print(f"Created new campaign linkedin search with id: {campaign_linkedin_search.id}")
-            else:
-                print(f"Found existing campaign linkedin search with id: {campaign_linkedin_search.id}")
-
-            return {
-                    "user_id": campaign_linkedin_search.user_id,
-                    "campaign_id": campaign_linkedin_search.campaign_id,
-                    "status": campaign_linkedin_search.status,
-                    "query": campaign_linkedin_search.query,
-                    "network": campaign_linkedin_search.network,
-                    "connection": campaign_linkedin_search.connection,
-                    "geo": campaign_linkedin_search.geo,
-                    "geo_value": campaign_linkedin_search.geo_value,
-                    "page": campaign_linkedin_search.page,
-                    "id": campaign_linkedin_search.id
-                }
-        except Exception as e:
-            session.rollback()
-            print(f"Error: {e}")
-            return None
-        finally:
-            session.close()      
+        
     def menu_search(self):
         query = input("Enter the query for the search: ")
         print(f"1. First Grade")

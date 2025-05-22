@@ -5,11 +5,13 @@ from services.user import UserService
 from services.contact import ContactService
 from services.linkedin_connect import LinkedinConnect
 from services.linkedin_search import LinkedinSearch
+from services.linkedin_search_bulk import LinkedinSearchBulk
 def submenu(user):
     while True:
         print("\n--- Submenu ---")
         print("1. Connect Contacts from db in Linkedin")
         print("2. Search in linkedin and create a bulk list")
+        print("3. Process Bulk created by the search")
         print("0. Back to Main Menu")
         choice = input("Select an option: ")
         if choice == "1":
@@ -18,6 +20,9 @@ def submenu(user):
         elif choice == "2":
             linkedin_search_service = LinkedinSearch()
             linkedin_search_service.execute(user)
+        elif choice == "3":
+            linkedin_search_bulk_service = LinkedinSearchBulk()
+            linkedin_search_bulk_service.execute(user)
         elif choice == "0":
             break
         else:

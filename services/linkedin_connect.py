@@ -19,7 +19,7 @@ for handling LinkedIn connection workflows.
 class LinkedinConnect(LinkedinService):
 
     def execute(self, user):
-        print(f"Executing Linkedin service with:")
+        print(f"Executing LinkedinConnect service with:")
         print(f"Email: {user['email']}")
         print(f"Password: {user['password']}")
         campaign_id = self.add_or_retrive_campaign(user['id'], status="PENDING", action="LINKEDIN_CONNECT", date_execution=None)
