@@ -92,7 +92,7 @@ class CampaignLinkedinSearchItem(Base):
     campaign_linkedin_search_id = Column(Integer, ForeignKey('campaigns_linkedin_search.id'), nullable=False)
     first_name = Column(String(255), nullable=False)
     last_name = Column(String(255), nullable=True)
-    linkedin = Column(String(455), nullable=True)
+    linkedin = Column(String(455), nullable=False)
     email = Column(String(255), nullable=True)
     status = Column(String(100), nullable=False)
 

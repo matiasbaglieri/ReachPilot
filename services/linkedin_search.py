@@ -1,5 +1,5 @@
 from .linkedin import LinkedinService
-from models.base import SessionLocal, CampaignLinkedin, Campaign, Contact,CampaignLinkedinSearch
+from models.base import SessionLocal, CampaignLinkedin, Campaign, Contact,CampaignLinkedinSearch,CampaignLinkedinSearchItem
 from datetime import date
 from selenium import webdriver
 from chromedriver_py import binary_path
@@ -32,7 +32,7 @@ class LinkedinSearch(LinkedinService):
             #     print(f"Found {len(pending_linkedin)} Inserted:{inserted} url: {ce.url}")
             #     inserted += 1
             
-            data = self.add_or_retrive_campaign_linkedin(user['id'], campaign_id, status="PENDING", page=1)
+            data = self.add_or_retrive_campaign_linkedin(user['id'], campaign_id, "PENDING")
             if data['status'] == "PENDING":
                 for page in range(data['page'], 100):
                     self.update_campaign_linkedin_search(data['id'], "PENDING", page)   
@@ -52,12 +52,14 @@ class LinkedinSearch(LinkedinService):
     def list_items(self, driver, user_id, campaign_id, campaign_linkedin_search_id):
         dropdown = driver.find_elements(By.CSS_SELECTOR, ".linked-area")
         more_results = False    
+        session = SessionLocal()
         for d in dropdown:
             more_results = True
             # print(d.get_attribute("outerHTML")) 
             try:
                 a_tag = d.find_element(By.TAG_NAME, "a")
                 profile_url = a_tag.get_attribute("href")
+                profile_url = profile_url.split("?")[0]
                 span_tags = d.find_elements(By.TAG_NAME, "span")
                 for span in span_tags:
                     name = span.text.strip()
@@ -74,8 +76,21 @@ class LinkedinSearch(LinkedinService):
                 print("First Name:", first_name)
                 print("Last Name:", last_name)
                 print("Profile URL:", profile_url)
+                item = CampaignLinkedinSearchItem(
+                    campaign_id=campaign_id,
+                    user_id=user_id,
+                    campaign_linkedin_search_id=campaign_linkedin_search_id,
+                    first_name=first_name,
+                    last_name=last_name,
+                    linkedin=profile_url,
+                    email=None,  
+                    status="PENDING"
+                )
+                session.add(item)
+                session.commit()
             except Exception as e:
                 print("No <a> tag found in this element:", e)
+        session.close()
         return more_results
       
     def update_campaign_linkedin_search(self, id, status=None, page=None):
