@@ -38,7 +38,9 @@ class LinkedinSearchBulk(LinkedinService):
                 try:
                     message = ""
                     if int(data['connection']) == 1:
-                        message = input("write message to send: ")
+                        from dotenv import load_dotenv
+                        load_dotenv()
+                        message = os.getenv("MESSAGE_LINKEDIN_SEARCH") or input("write message to send:  ")
                     items = session.query(CampaignLinkedinSearchItem).filter_by(
                         campaign_linkedin_search_id=data['id'],
                         status="PENDING"
@@ -61,12 +63,11 @@ class LinkedinSearchBulk(LinkedinService):
             self.process_first_connection(item, session, message, driver,user_id)
         else:
             self.process_second_connection(item, session, driver)
-        print(f"Processed item {item.id}: status={item.status}, email={item.email}")
     
     def process_first_connection(self, item, session, message,driver,user_id):
         message = message.replace("first_name", item.first_name.lower())
         driver.get(item.linkedin+"/overlay/contact-info/")
-        time.sleep(5)
+        time.sleep(10)
         contact_sections = driver.find_elements(By.CLASS_NAME, "pv-contact-info__contact-type")
         email = None
         for section in contact_sections:
@@ -81,7 +82,7 @@ class LinkedinSearchBulk(LinkedinService):
         #extract email 
         print("Email found:", email)  
         driver.get(item.linkedin)
-        time.sleep(5)
+        time.sleep(10)
         self.click_message(driver, message, item.linkedin)  
         item.status = "COMPLETED"      
         if email:
@@ -117,12 +118,25 @@ class LinkedinSearchBulk(LinkedinService):
         for btn in buttons:
             if "Message" in btn.text:
                 btn.click()
-                time.sleep(5)
+                time.sleep(10)
                 if url in driver.current_url:
                     self.click_message_in_browser(driver, message)
                     print("Current URL matches the profile URL.")
                 else:
                     print("Current URL does NOT match the profile URL.")
+                    message_box = driver.switch_to.active_element
+                    message_box.click()
+                    message_box.clear()
+                    message_box.send_keys(message)
+                    message_box.send_keys(Keys.ENTER)
+                    message_box.send_keys(Keys.RETURN)
+
+                    # send_button = driver.find_element(By.CLASS_NAME, "msg-form__send-button")
+                    # send_button.click()
+                    # driver.execute_script("arguments[0].click();", send_button)
+                    
+                    time.sleep(3)
+            
                     input("click_message ")
                 
                 break

@@ -52,9 +52,15 @@ def find_contacts(user):
     contact_service.add_contacts(user['id'], filename)
 
 def main_menu():
-    email = input("email: ")
-    passwd = input("password: ")
-    mailgun_api = input("mailgun api key: ")
+    from dotenv import load_dotenv
+    load_dotenv()
+    print(os.getenv("EMAIL"))
+    email = os.getenv("EMAIL") or input("email: ")
+    passwd = os.getenv("PASSWD") or input("password: ")
+    mailgun_api = os.getenv("MAILGUN_API") or input("mailgun api key: ")
+    if not email or not passwd or not mailgun_api:
+        print("Email, password, and Mailgun API key are required.")
+        return
     user_service = UserService()
     user = user_service.execute(email, passwd, mailgun_api)
     if not user:
