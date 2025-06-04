@@ -8,3 +8,4 @@ configparser
 mysql
 chromedriver-py
 python-dotenv
+beautifulsoup4

@@ -122,6 +122,8 @@ celerybeat.pid
 
 # Environments
 .env
+.env-matias
+.env-fran
 .venv
 env/
 venv/

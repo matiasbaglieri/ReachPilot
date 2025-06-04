@@ -82,7 +82,7 @@ class LinkedinSearchBulk(LinkedinService):
         #extract email 
         print("Email found:", email)  
         driver.get(item.linkedin)
-        time.sleep(10)
+        time.sleep(25)
         self.click_message(driver, message, item.linkedin)  
         item.status = "COMPLETED"      
         if email:
@@ -108,17 +108,90 @@ class LinkedinSearchBulk(LinkedinService):
     def process_second_connection(self, item, session, driver):
         driver.get(item.linkedin)
         time.sleep(5)
-        input("process_second_connection ")
-        # item.status = "COMPLETED"
-        # session.commit()
-        print(f"Processed item {item.id}: status={item.status}, email={item.email}")
+        self.process_second_connection_click_connect(item, driver, session)
+        print(f"Processed item {item.id}: status={item.status}")
+    
+    def process_second_connection_click_connect(self, ce, driver, session):
+        buttons = driver.find_elements(By.TAG_NAME, "button")
+        connect_button = None
+        is_connect_present = True
+        for btn in buttons:
+            print(f"Found Message button: '{btn.text}'")
+            if "Connect" in btn.text:
+                connect_button = btn
+            if "Message" in btn.text:
+                if is_connect_present and connect_button is not None and connect_button:
+                    connect_button.click()
+                    time.sleep(5)
+                    self.connect_modal(ce, driver, session)
+                    print("Clicked the Connect button.")
+                    break
+                else:
+                    is_connect_present = False   
+            if "More" in btn.text:
+                btn.click()
+                time.sleep(1)
+                print("Clicked the More button.")
+                try:
+                    # Wait for the dropdown to appear
+                    dropdown = driver.find_elements(By.CSS_SELECTOR, ".artdeco-dropdown__content")
+                    is_connected = False
+                    for d in dropdown:
+                        connect_buttons = d.find_elements(By.XPATH, ".//*[@role='button']")
+                        for btn in connect_buttons:
+                            btn_text = btn.text
+                            aria_label = btn.get_attribute("aria-label") or ""
+                            print(f"Dropdown button text: '{btn_text}', aria-label: '{aria_label}'")
+                            if "Connect" in btn_text or "Connect" in aria_label:
+                                if "Connection" in btn_text or "Connection" in aria_label:
+                                    break
+                                is_connected = True
+                                btn.click()
+                                print("Clicked the Connect button in dropdown.")
+                                time.sleep(2)
+                                self.process_second_connection_connect_modal(ce, driver, session)
+                                print("Clicked the Connect button.")
+                                break
+                    if is_connected:
+                        ce.status = "COMPLETED"
+                        session.commit()
+                    
+                except Exception as e:
+                    print(f"Could not find or click Connect in dropdown: {e}")
+                    traceback.print_exc()
+            if "Pending" in btn.text:
+                print("Already connected or pending.")
+                ce.status = "COMPLETED"
+                session.commit()
+                break
+            
+    def process_second_connection_connect_modal(self, ce, driver, session):
+        try:
+            # Wait for the modal to appear
+            modal = WebDriverWait(driver, 10).until(
+                EC.visibility_of_element_located((By.CLASS_NAME, "artdeco-modal"))
+            )
+            # Find all buttons inside the modal
+            modal_buttons = modal.find_elements(By.TAG_NAME, "button")
+            for btn in modal_buttons:
+                print(f"Modal button text: '{btn.text}'")
+                if "Send without a note" in btn.text:
+                    btn.click()
+                    time.sleep(5)
+                    ce.status = "COMPLETED"
+                    session.commit()
+                    break
+        except Exception as e:
+            print(f"Could not find modal or its buttons: {e}")    
+        
+        
         
     def click_message(self,  driver, message, url):
         buttons = driver.find_elements(By.TAG_NAME, "button")
         for btn in buttons:
             if "Message" in btn.text:
                 btn.click()
-                time.sleep(10)
+                time.sleep(25)
                 if url in driver.current_url:
                     self.click_message_in_browser(driver, message)
                     print("Current URL matches the profile URL.")
