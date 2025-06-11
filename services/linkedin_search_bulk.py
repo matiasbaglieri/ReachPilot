@@ -27,10 +27,6 @@ class LinkedinSearchBulk(LinkedinService):
 
         try:
             driver = self.login_linkedin(user['email'], user['password'])
-            # inserted = 0
-            # for ce in pending_linkedin:
-            #     print(f"Found {len(pending_linkedin)} Inserted:{inserted} url: {ce.url}")
-            #     inserted += 1
             
             data = self.add_or_retrive_campaign_linkedin(user['id'], campaign_id, "IN_PROGRESS")
             if data['status'] == "IN_PROGRESS":
@@ -115,11 +111,13 @@ class LinkedinSearchBulk(LinkedinService):
         buttons = driver.find_elements(By.TAG_NAME, "button")
         connect_button = None
         is_connect_present = True
+        is_send_message_present = False
         for btn in buttons:
             print(f"Found Message button: '{btn.text}'")
-            if "Connect" in btn.text:
+            if "Connect" in btn.text or "Conectar" in btn.text:
                 connect_button = btn
-            if "Message" in btn.text:
+            if "Message" in btn.text or "Enviar mensaje" in btn.text:
+                is_send_message_present = True
                 if is_connect_present and connect_button is not None and connect_button:
                     connect_button.click()
                     time.sleep(5)
@@ -127,8 +125,17 @@ class LinkedinSearchBulk(LinkedinService):
                     print("Clicked the Connect button.")
                     break
                 else:
-                    is_connect_present = False   
-            if "More" in btn.text:
+                    is_connect_present = False  
+            if is_send_message_present and connect_button is not None and connect_button:
+                connect_button.click()
+                time.sleep(5)
+                self.connect_modal(ce, driver, session)
+                print("Clicked the Connect button.")
+                break
+            else:
+                is_send_message_present = False
+                
+            if "More" in btn.text or "Más" in btn.text:
                 btn.click()
                 time.sleep(1)
                 print("Clicked the More button.")
