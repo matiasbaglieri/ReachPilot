@@ -27,22 +27,26 @@ class LinkedinSearchBulk(LinkedinService):
 
         try:
             driver = self.login_linkedin(user['email'], user['password'])
-            
+            print(campaign_id)
             data = self.add_or_retrive_campaign_linkedin(user['id'], campaign_id, "IN_PROGRESS")
+            print(data)
+            if data is None:
+                print("No campaign linkedin search data found")
+                self.update_campaign(campaign_id, status="COMPLETED")
+                return
             if data['status'] == "IN_PROGRESS":
                 session = SessionLocal()
                 try:
-                    message = ""
-                    if int(data['connection']) == 1:
-                        from dotenv import load_dotenv
-                        load_dotenv()
-                        message = os.getenv("MESSAGE_LINKEDIN_SEARCH") or input("write message to send:  ")
+                    from dotenv import load_dotenv
+                    load_dotenv()
+                    message = os.getenv("MESSAGE_LINKEDIN_SEARCH") or input("write message to send:  ")
                     items = session.query(CampaignLinkedinSearchItem).filter_by(
                         campaign_linkedin_search_id=data['id'],
                         status="PENDING"
                     ).all()
+                    print(items)
                     for item in items:
-                        self.process_bulk(data['connection'], item, session, message, driver, user['id'])
+                        self.process_first_connection(item, session, message, driver,user['id'])
                 finally:
                     session.close()
             input("Enter to finish campaign ")
@@ -51,14 +55,7 @@ class LinkedinSearchBulk(LinkedinService):
                
         except Exception as e:
             print(f"Error fetching pending CampaignLinkedin: {e}")
-    
-    def process_bulk(self, connection, item, session, message, driver, user_id):
-        # Example: set status to "PROCESSED" and set email (replace with real logic)
-        # If you have logic to extract or assign an email, do it here
-        if int(connection) == 1:
-            self.process_first_connection(item, session, message, driver,user_id)
-        else:
-            self.process_second_connection(item, session, driver)
+            print(traceback.format_exc())
     
     def process_first_connection(self, item, session, message,driver,user_id):
         message = message.replace("first_name", item.first_name.lower())
@@ -100,97 +97,6 @@ class LinkedinSearchBulk(LinkedinService):
    
         session.commit()
         print(f"Processed item {item.id}: status={item.status}, email={item.email}")
-    
-    def process_second_connection(self, item, session, driver):
-        driver.get(item.linkedin)
-        time.sleep(5)
-        self.process_second_connection_click_connect(item, driver, session)
-        print(f"Processed item {item.id}: status={item.status}")
-    
-    def process_second_connection_click_connect(self, ce, driver, session):
-        buttons = driver.find_elements(By.TAG_NAME, "button")
-        connect_button = None
-        is_connect_present = True
-        is_send_message_present = False
-        for btn in buttons:
-            print(f"Found Message button: '{btn.text}'")
-            if "Connect" in btn.text or "Conectar" in btn.text:
-                connect_button = btn
-            if "Message" in btn.text or "Enviar mensaje" in btn.text:
-                is_send_message_present = True
-                if is_connect_present and connect_button is not None and connect_button:
-                    connect_button.click()
-                    time.sleep(5)
-                    self.connect_modal(ce, driver, session)
-                    print("Clicked the Connect button.")
-                    break
-                else:
-                    is_connect_present = False  
-            if is_send_message_present and connect_button is not None and connect_button:
-                connect_button.click()
-                time.sleep(5)
-                self.connect_modal(ce, driver, session)
-                print("Clicked the Connect button.")
-                break
-            else:
-                is_send_message_present = False
-                
-            if "More" in btn.text or "Más" in btn.text:
-                btn.click()
-                time.sleep(1)
-                print("Clicked the More button.")
-                try:
-                    # Wait for the dropdown to appear
-                    dropdown = driver.find_elements(By.CSS_SELECTOR, ".artdeco-dropdown__content")
-                    is_connected = False
-                    for d in dropdown:
-                        connect_buttons = d.find_elements(By.XPATH, ".//*[@role='button']")
-                        for btn in connect_buttons:
-                            btn_text = btn.text
-                            aria_label = btn.get_attribute("aria-label") or ""
-                            print(f"Dropdown button text: '{btn_text}', aria-label: '{aria_label}'")
-                            if "Connect" in btn_text or "Connect" in aria_label:
-                                if "Connection" in btn_text or "Connection" in aria_label:
-                                    break
-                                is_connected = True
-                                btn.click()
-                                print("Clicked the Connect button in dropdown.")
-                                time.sleep(2)
-                                self.process_second_connection_connect_modal(ce, driver, session)
-                                print("Clicked the Connect button.")
-                                break
-                    if is_connected:
-                        ce.status = "COMPLETED"
-                        session.commit()
-                    
-                except Exception as e:
-                    print(f"Could not find or click Connect in dropdown: {e}")
-                    traceback.print_exc()
-            if "Pending" in btn.text:
-                print("Already connected or pending.")
-                ce.status = "COMPLETED"
-                session.commit()
-                break
-            
-    def process_second_connection_connect_modal(self, ce, driver, session):
-        try:
-            # Wait for the modal to appear
-            modal = WebDriverWait(driver, 10).until(
-                EC.visibility_of_element_located((By.CLASS_NAME, "artdeco-modal"))
-            )
-            # Find all buttons inside the modal
-            modal_buttons = modal.find_elements(By.TAG_NAME, "button")
-            for btn in modal_buttons:
-                print(f"Modal button text: '{btn.text}'")
-                if "Send without a note" in btn.text:
-                    btn.click()
-                    time.sleep(5)
-                    ce.status = "COMPLETED"
-                    session.commit()
-                    break
-        except Exception as e:
-            print(f"Could not find modal or its buttons: {e}")    
-        
         
         
     def click_message(self,  driver, message, url):

@@ -23,14 +23,12 @@ class LinkedinSearch(LinkedinService):
         print(f"Executing LinkedinSearch service with:")
         print(f"Email: {user['email']}")
         print(f"Password: {user['password']}")
-        campaign_id = self.add_or_retrive_campaign_only(user['id'], status="PENDING", action="LINKEDIN_SEARCH", date_execution=None)
+        connection = int(input("Enter the connection: 1 or 2 "))
+        action = "LINKEDIN_SEARCH" if int(connection) == 1 else "LINKEDIN_SEARCH_2"
+        campaign_id = self.add_or_retrive_campaign_only(user['id'], status="PENDING", action=action, date_execution=None)
 
         try:
             driver = self.login_linkedin(user['email'], user['password'])
-            # inserted = 0
-            # for ce in pending_linkedin:
-            #     print(f"Found {len(pending_linkedin)} Inserted:{inserted} url: {ce.url}")
-            #     inserted += 1
             
             data = self.add_or_retrive_campaign_linkedin(user['id'], campaign_id, "PENDING")
             if data['status'] == "PENDING":
